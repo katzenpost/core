@@ -108,6 +108,17 @@ type PeerAuthenticator interface {
 	IsPeerValid(*PeerCredentials) bool
 }
 
+// SessionInterface can be used as a placeholder for a Session
+// allowing you to easily mock Session in unit tests
+type SessionInterface interface {
+	Initialize(conn net.Conn) error
+	SendCommand(cmd commands.Command) error
+	RecvCommand() (commands.Command, error)
+	Close()
+	PeerCredentials() *PeerCredentials
+	ClockSkew() time.Duration
+}
+
 // Session is a wire protocol session.
 type Session struct {
 	conn net.Conn
