@@ -41,6 +41,41 @@ type Document struct {
 	Providers []*MixDescriptor
 }
 
+type CBORDocument struct {
+	// Epoch is the epoch for which this Document instance is valid for.
+	Epoch uint64
+
+	// Topology is the mix network topology, excluding providers.
+	Topology [][]*CBORMixDescriptor
+
+	// Providers is the list of providers that can interact with the mix
+	// network.
+	Providers []*CBORMixDescriptor
+}
+
+func (c *CBORDocument) ToDocument() *Document {
+	return nil
+}
+
+func (d *Document) ToCBORDocument() *CBORDocument {
+	topo := make([][]*CBORMixDescriptor, len(d.Topology))
+	for i, layer := range d.Topology {
+		for _, mix := range layer {
+			topo[i] = append(topo[i], mix.ToCBORMixDescriptor())
+		}
+	}
+	providers := make([]*CBORMixDescriptor, len(d.Providers))
+	for i, provider := range d.Providers {
+		providers[i] = provider.ToCBORMixDescriptor()
+	}
+	c := CBORDocument{
+		Epoch:     d.Epoch,
+		Topology:  topo,
+		Providers: providers,
+	}
+	return &c
+}
+
 // GetProvider returns the MixDescriptor for the given provider Name.
 func (d *Document) GetProvider(name string) (*MixDescriptor, error) {
 	for _, v := range d.Providers {
@@ -145,4 +180,56 @@ type MixDescriptor struct {
 type Client interface {
 	// Get returns the PKI document for the provided epoch.
 	Get(ctx context.Context, epoch uint64) (*Document, error)
+}
+
+type CBORMixDescriptor struct {
+	Name       string
+	LinkKey    [32]byte
+	MixKeys    map[uint64][32]byte
+	Addresses  []string
+	Layer      uint8
+	LoadWeight uint8
+}
+
+func (c *CBORMixDescriptor) ToDescriptor() (*MixDescriptor, error) {
+	linkKey := ecdh.PublicKey{}
+	err := linkKey.FromBytes(c.LinkKey[:])
+	if err != nil {
+		return nil, err
+	}
+	mixKeys := make(map[uint64]*ecdh.PublicKey)
+	for k, v := range c.MixKeys {
+		val := ecdh.PublicKey{}
+		val.FromBytes(v[:])
+		mixKeys[k] = &val
+	}
+	d := MixDescriptor{
+		Name:       c.Name,
+		LinkKey:    &linkKey,
+		MixKeys:    mixKeys,
+		Addresses:  c.Addresses,
+		Layer:      c.Layer,
+		LoadWeight: c.LoadWeight,
+	}
+	return &d, nil
+}
+
+func (d *MixDescriptor) ToCBORMixDescriptor() *CBORMixDescriptor {
+	linkKey := [32]byte{}
+	copy(linkKey[:], d.LinkKey.Bytes())
+	mixKeys := make(map[uint64][32]byte)
+	for k, v := range d.MixKeys {
+		mixKey := [32]byte{}
+		copy(mixKey[:], v.Bytes())
+		mixKeys[k] = mixKey
+	}
+	c := CBORMixDescriptor{
+		Name:       d.Name,
+		LinkKey:    linkKey,
+		MixKeys:    mixKeys,
+		Addresses:  d.Addresses,
+		Layer:      d.Layer,
+		LoadWeight: d.LoadWeight,
+	}
+	return &c
 }
