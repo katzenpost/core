@@ -27,9 +27,11 @@ import (
 
 const (
 	// SURBLength is the length of a Sphinx SURB in bytes.
-	SURBLength = HeaderLength + constants.NodeIDLength + sprpKeyMaterialLength // 556 bytes.
+	SURBLength = HeaderLength + constants.NodeIDLength + SprpKeyMaterialLength // 556 bytes.
 
-	sprpKeyMaterialLength = crypto.SPRPKeyLength + crypto.SPRPIVLength
+	// SprpKeyMaterialLength is the length of the decryption key material
+	// of a SURB reply payload
+	SprpKeyMaterialLength = crypto.SPRPKeyLength + crypto.SPRPIVLength
 )
 
 // NewSURB creates a new SURB with the provided path using the provided entropy
@@ -37,7 +39,7 @@ const (
 func NewSURB(r io.Reader, path []*PathHop) ([]byte, []byte, error) {
 	// Create a random SPRP key + iv for the recipient to use to encrypt
 	// the payload when using the SURB.
-	var keyPayload [sprpKeyMaterialLength]byte
+	var keyPayload [SprpKeyMaterialLength]byte
 	if _, err := io.ReadFull(r, keyPayload[:]); err != nil {
 		return nil, nil, err
 	}
@@ -50,7 +52,7 @@ func NewSURB(r io.Reader, path []*PathHop) ([]byte, []byte, error) {
 
 	// Serialize the SPRP keys into an opaque blob, in reverse order to ease
 	// decryption.
-	k := make([]byte, 0, sprpKeyMaterialLength*(len(path)+1))
+	k := make([]byte, 0, SprpKeyMaterialLength*(len(path)+1))
 	for i := len(path) - 1; i >= 0; i-- {
 		k = append(k, sprpKeys[i].key[:]...)
 		k = append(k, sprpKeys[i].iv[:]...)
@@ -110,8 +112,8 @@ func NewPacketFromSURB(surb, payload []byte) ([]byte, *[constants.NodeIDLength]b
 // at the end of this call.
 func DecryptSURBPayload(payload, keys []byte) ([]byte, error) {
 	defer utils.ExplicitBzero(keys)
-	nrHops := len(keys) / sprpKeyMaterialLength
-	if len(keys)%sprpKeyMaterialLength != 0 || nrHops < 1 {
+	nrHops := len(keys) / SprpKeyMaterialLength
+	if len(keys)%SprpKeyMaterialLength != 0 || nrHops < 1 {
 		return nil, errors.New("sphinx: invalid SURB decryption keys")
 	}
 	if len(payload) < PayloadTagLength {
@@ -128,7 +130,7 @@ func DecryptSURBPayload(payload, keys []byte) ([]byte, error) {
 	for i := 0; i < nrHops; i++ {
 		copy(sprpKey[:], k[:crypto.SPRPKeyLength])
 		copy(sprpIV[:], k[crypto.SPRPKeyLength:])
-		k = k[sprpKeyMaterialLength:]
+		k = k[SprpKeyMaterialLength:]
 		if i == nrHops-1 {
 			b = crypto.SPRPDecrypt(&sprpKey, &sprpIV, b)
 		} else {
