@@ -36,6 +36,8 @@ const (
 	messageMsgPaddingLength = sphinxConstants.SURBIDLength + constants.SphinxPlaintextHeaderLength + sphinx.SURBLength + sphinx.PayloadTagLength
 	messageEmptyLength      = messageACKLength + sphinx.PayloadTagLength + constants.ForwardPayloadLength
 
+	getConsensusLength = 8
+
 	messageTypeMessage messageType = 0
 	messageTypeACK     messageType = 1
 	messageTypeEmpty   messageType = 2
@@ -48,6 +50,8 @@ const (
 	// Implementation defined commands.
 	retreiveMessage commandID = 16
 	message         commandID = 17
+	getConsensus    commandID = 18
+	consensus       commandID = 19
 )
 
 var errInvalidCommand = errors.New("wire: invalid wire protocol command")
@@ -71,6 +75,56 @@ func (c NoOp) ToBytes() []byte {
 	out := make([]byte, cmdOverhead)
 	out[0] = byte(noOp)
 	return out
+}
+
+// GetConsensus is a GET_CONSENSUS command which
+// clients can use to retreive a PKI consensus document
+// from their Provider.
+type GetConsensus struct {
+	Epoch uint64
+}
+
+// ToBytes serializes the GetConsensus,
+// returns the resulting byte slice.
+func (c GetConsensus) ToBytes() []byte {
+	out := make([]byte, cmdOverhead+getConsensusLength)
+	out[0] = byte(getConsensus)
+	binary.BigEndian.PutUint32(out[2:6], getConsensusLength)
+	binary.BigEndian.PutUint64(out[6:14], c.Epoch)
+	return out
+}
+
+func getConsensusFromBytes(b []byte) (Command, error) {
+	if len(b) != getConsensusLength {
+		return nil, errInvalidCommand
+	}
+
+	r := new(GetConsensus)
+	r.Epoch = binary.BigEndian.Uint64(b[0:8])
+	return r, nil
+}
+
+// Consensus is a CONSENSUS command which is used
+// to transport a cached PKI consensus file
+type Consensus struct {
+	Payload []byte
+}
+
+// ToBytes serializes the GetConsensus,
+// returns the resulting byte slice.
+func (c Consensus) ToBytes() []byte {
+	out := make([]byte, cmdOverhead, cmdOverhead+len(c.Payload))
+	out[0] = byte(consensus)
+	binary.BigEndian.PutUint32(out[2:6], uint32(len(c.Payload)))
+	out = append(out, c.Payload...)
+	return out
+}
+
+func consensusFromBytes(b []byte) (Command, error) {
+	r := new(Consensus)
+	r.Payload = make([]byte, 0, len(b))
+	r.Payload = append(r.Payload, b...)
+	return r, nil
 }
 
 // Disconnect is a de-serialized disconnect command.
@@ -300,6 +354,10 @@ func FromBytes(b []byte) (Command, error) {
 		return retreiveMessageFromBytes(b)
 	case message:
 		return messageFromBytes(b)
+	case getConsensus:
+		return getConsensusFromBytes(b)
+	case consensus:
+		return consensusFromBytes(b)
 	default:
 		return nil, errInvalidCommand
 	}
