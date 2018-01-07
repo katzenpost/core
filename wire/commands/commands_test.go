@@ -157,3 +157,28 @@ func TestMessage(t *testing.T) {
 	require.Equal(id[:], cmdMessageACK.ID[:], "MessageACK: FromBytes() ID")
 	require.Equal(ackPayload, cmdMessageACK.Payload, "MessageACK: FromBytes() Payload")
 }
+
+func TestGetConsensus(t *testing.T) {
+	require := require.New(t)
+
+	cmd := &GetConsensus{
+		Epoch: 123,
+	}
+	b := cmd.ToBytes()
+	require.Equal(getConsensusLength+cmdOverhead, len(b), "GetConsensus: ToBytes() length")
+	c, err := FromBytes(b)
+	require.NoError(err, "GetConsensus: FromBytes() failed")
+	require.IsType(cmd, c, "GetConsensus: FromBytes() invalid type")
+}
+
+func TestConsensus(t *testing.T) {
+	require := require.New(t)
+
+	cmd := &Consensus{}
+	cmd.Payload = []byte{0, 1, 2, 3, 4, 5}
+	b := cmd.ToBytes()
+	require.Equal(len(b), len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
+	c, err := FromBytes(b)
+	require.NoError(err, "Consensus: FromBytes() failed")
+	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
+}
