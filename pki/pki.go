@@ -222,4 +222,7 @@ type Client interface {
 
 	// Post posts the node's descriptor to the PKI for the provided epoch.
 	Post(ctx context.Context, epoch uint64, signingKey *eddsa.PrivateKey, d *MixDescriptor) error
+
+	// Deserialize returns a *Document given the raw bytes
+	Deserialize(raw []byte) (*Document, error)
 }
