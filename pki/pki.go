@@ -225,4 +225,7 @@ type Client interface {
 
 	// Deserialize returns a *Document given the raw bytes
 	Deserialize(raw []byte) (*Document, error)
+
+	// Get returns the PKI document for the provided epoch as raw serialized bytes
+	GetRaw(ctx context.Context, epoch uint64) ([]byte, error)
 }
