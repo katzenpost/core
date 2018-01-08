@@ -77,15 +77,13 @@ func (c NoOp) ToBytes() []byte {
 	return out
 }
 
-// GetConsensus is a GET_CONSENSUS command which
-// clients can use to retreive a PKI consensus document
-// from their Provider.
+// GetConsensus is a command which clients can use to retreive a
+// cached PKI consensus document from their Provider.
 type GetConsensus struct {
 	Epoch uint64
 }
 
-// ToBytes serializes the GetConsensus,
-// returns the resulting byte slice.
+// ToBytes serializes the GetConsensus, returns the resulting byte slice.
 func (c GetConsensus) ToBytes() []byte {
 	out := make([]byte, cmdOverhead+getConsensusLength)
 	out[0] = byte(getConsensus)
@@ -104,14 +102,12 @@ func getConsensusFromBytes(b []byte) (Command, error) {
 	return r, nil
 }
 
-// Consensus is a CONSENSUS command which is used
-// to transport a cached PKI consensus file
+// Consensus is a command which is used to transport a cached PKI consensus file.
 type Consensus struct {
 	Payload []byte
 }
 
-// ToBytes serializes the GetConsensus,
-// returns the resulting byte slice.
+// ToBytes serializes the GetConsensus, returns the resulting byte slice.
 func (c Consensus) ToBytes() []byte {
 	out := make([]byte, cmdOverhead, cmdOverhead+len(c.Payload))
 	out[0] = byte(consensus)
