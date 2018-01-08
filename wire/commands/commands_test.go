@@ -188,6 +188,7 @@ func TestConsensus(t *testing.T) {
 
 	cmd = &Consensus{
 		Payload: []byte{},
+		ErrorID: consensusOk,
 	}
 	b = cmd.ToBytes()
 	require.Equal(len(b), 1+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
@@ -200,14 +201,25 @@ func TestConsensus(t *testing.T) {
 
 	cmd = &Consensus{
 		Payload: []byte{},
-		ErrorID: 0x01,
+		ErrorID: consensusNotFound,
 	}
 	b = cmd.ToBytes()
 	require.Equal(len(b), 1+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
 	c, err = FromBytes(b)
-	require.NoError(err, "Consensus: FromBytes() failed")
+	require.Error(err, errConsensusNotFound)
 	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
 	d = c.(*Consensus)
 	require.Equal(d.Payload, cmd.Payload)
 	require.Equal(d.ErrorID, cmd.ErrorID)
+
+	cmd.ErrorID = consensusGone
+	b = cmd.ToBytes()
+	c, err = FromBytes(b)
+	require.Error(err, errConsensusGone)
+
+	cmd.ErrorID = 0xF0
+	b = cmd.ToBytes()
+	c, err = FromBytes(b)
+	require.Error(err, errInvalidCommand)
+
 }

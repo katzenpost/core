@@ -36,7 +36,8 @@ const (
 	messageMsgPaddingLength = sphinxConstants.SURBIDLength + constants.SphinxPlaintextHeaderLength + sphinx.SURBLength + sphinx.PayloadTagLength
 	messageEmptyLength      = messageACKLength + sphinx.PayloadTagLength + constants.ForwardPayloadLength
 
-	getConsensusLength = 8
+	getConsensusLength     = 8
+	consensusErrorIdLength = 1
 
 	messageTypeMessage messageType = 0
 	messageTypeACK     messageType = 1
@@ -52,9 +53,18 @@ const (
 	message         commandID = 17
 	getConsensus    commandID = 18
 	consensus       commandID = 19
+
+	// Consensus error codes.
+	consensusOk       = 0
+	consensusNotFound = 1
+	consensusGone     = 2
 )
 
-var errInvalidCommand = errors.New("wire: invalid wire protocol command")
+var (
+	errInvalidCommand    = errors.New("wire: invalid wire protocol command")
+	errConsensusNotFound = errors.New("wire: consensus not found")
+	errConsensusGone     = errors.New("wire: consensus gone")
+)
 
 type (
 	commandID   byte
@@ -112,7 +122,7 @@ type Consensus struct {
 
 // ToBytes serializes the GetConsensus, returns the resulting byte slice.
 func (c Consensus) ToBytes() []byte {
-	consensusLength := uint32(1 + len(c.Payload)) // 1 accounts for one byte error
+	consensusLength := uint32(consensusErrorIdLength + len(c.Payload))
 	out := make([]byte, cmdOverhead, cmdOverhead+consensusLength)
 	out[0] = byte(consensus) // out[1] is reserved
 	binary.BigEndian.PutUint32(out[2:6], consensusLength)
@@ -121,12 +131,32 @@ func (c Consensus) ToBytes() []byte {
 	return out
 }
 
+// consenusFromBytes returns a Consensus and an error.
 func consensusFromBytes(b []byte) (Command, error) {
 	r := new(Consensus)
-	r.ErrorID = b[0]
-	r.Payload = make([]byte, 0, len(b)-1)
-	r.Payload = append(r.Payload, b[1:]...)
-	return r, nil
+	// FIXME: ErrorID is parsed as a uint8
+	r.ErrorID = uint8(b[0])
+	payloadSize := len(b) - consensusErrorIdLength
+	b = b[consensusErrorIdLength:]
+	r.Payload = make([]byte, 0, payloadSize)
+	r.Payload = append(r.Payload, b...)
+
+	// TODO: see https://github.com/katzenpost/authority/blob/master/nonvoting/client/client.go#L138
+	// // Validate the document.
+	// doc, err := s11n.VerifyAndParseDocument(b, c.cfg.PublicKey, epoch)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	switch r.ErrorID {
+	case consensusOk:
+		return r, nil
+	case consensusNotFound:
+		return r, errConsensusNotFound
+	case consensusGone:
+		return r, errConsensusGone
+	default:
+		return r, errInvalidCommand
+	}
 }
 
 // Disconnect is a de-serialized disconnect command.
