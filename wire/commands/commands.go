@@ -104,22 +104,28 @@ func getConsensusFromBytes(b []byte) (Command, error) {
 
 // Consensus is a command which is used to transport a cached PKI consensus file.
 type Consensus struct {
+	// ErrorID is a one byte error field where 0x00 means "no error".
+	// 0x01
+	ErrorID uint8
 	Payload []byte
 }
 
 // ToBytes serializes the GetConsensus, returns the resulting byte slice.
 func (c Consensus) ToBytes() []byte {
-	out := make([]byte, cmdOverhead, cmdOverhead+len(c.Payload))
-	out[0] = byte(consensus)
-	binary.BigEndian.PutUint32(out[2:6], uint32(len(c.Payload)))
+	consensusLength := uint32(1 + len(c.Payload)) // 1 accounts for one byte error
+	out := make([]byte, cmdOverhead, cmdOverhead+consensusLength)
+	out[0] = byte(consensus) // out[1] is reserved
+	binary.BigEndian.PutUint32(out[2:6], consensusLength)
+	out = append(out, byte(c.ErrorID))
 	out = append(out, c.Payload...)
 	return out
 }
 
 func consensusFromBytes(b []byte) (Command, error) {
 	r := new(Consensus)
-	r.Payload = make([]byte, 0, len(b))
-	r.Payload = append(r.Payload, b...)
+	r.ErrorID = b[0]
+	r.Payload = make([]byte, 0, len(b)-1)
+	r.Payload = append(r.Payload, b[1:]...)
 	return r, nil
 }
 
