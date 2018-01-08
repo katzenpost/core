@@ -182,6 +182,9 @@ func TestConsensus(t *testing.T) {
 	c, err := FromBytes(b)
 	require.NoError(err, "Consensus: FromBytes() failed")
 	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
+	d := c.(*Consensus)
+	require.Equal(d.Payload, cmd.Payload)
+	require.Equal(d.ErrorID, cmd.ErrorID)
 
 	cmd = &Consensus{
 		Payload: []byte{},
@@ -191,6 +194,9 @@ func TestConsensus(t *testing.T) {
 	c, err = FromBytes(b)
 	require.NoError(err, "Consensus: FromBytes() failed")
 	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
+	d = c.(*Consensus)
+	require.Equal(d.Payload, cmd.Payload)
+	require.Equal(d.ErrorID, cmd.ErrorID)
 
 	cmd = &Consensus{
 		Payload: []byte{},
@@ -201,4 +207,7 @@ func TestConsensus(t *testing.T) {
 	c, err = FromBytes(b)
 	require.NoError(err, "Consensus: FromBytes() failed")
 	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
+	d = c.(*Consensus)
+	require.Equal(d.Payload, cmd.Payload)
+	require.Equal(d.ErrorID, cmd.ErrorID)
 }
