@@ -141,12 +141,6 @@ func consensusFromBytes(b []byte) (Command, error) {
 	r.Payload = make([]byte, 0, payloadSize)
 	r.Payload = append(r.Payload, b...)
 
-	// TODO: see https://github.com/katzenpost/authority/blob/master/nonvoting/client/client.go#L138
-	// // Validate the document.
-	// doc, err := s11n.VerifyAndParseDocument(b, c.cfg.PublicKey, epoch)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	switch r.ErrorID {
 	case consensusOk:
 		return r, nil
