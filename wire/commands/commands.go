@@ -90,6 +90,7 @@ func (c NoOp) ToBytes() []byte {
 // GetConsensus is a command which clients can use to retreive a
 // cached PKI consensus document from their Provider.
 type GetConsensus struct {
+	// Epoch species the epoch for the consensus query.
 	Epoch uint64
 }
 
@@ -114,9 +115,13 @@ func getConsensusFromBytes(b []byte) (Command, error) {
 
 // Consensus is a command which is used to transport a cached PKI consensus file.
 type Consensus struct {
-	// ErrorID is a one byte error field where 0x00 means "no error".
-	// 0x01
+	// ErrorID is a one byte error field where the following values
+	// are defined as consensusOK and error states:
+	// consensusOk       = 0
+	// consensusNotFound = 1
+	// consensusGone     = 2
 	ErrorID uint8
+	// Payload contains the consensus document unless a non-zero ErrorID was specified.
 	Payload []byte
 }
 
@@ -134,13 +139,11 @@ func (c Consensus) ToBytes() []byte {
 // consenusFromBytes returns a Consensus and an error.
 func consensusFromBytes(b []byte) (Command, error) {
 	r := new(Consensus)
-	// FIXME: ErrorID is parsed as a uint8
 	r.ErrorID = uint8(b[0])
 	payloadSize := len(b) - consensusErrorIdLength
 	b = b[consensusErrorIdLength:]
 	r.Payload = make([]byte, 0, payloadSize)
 	r.Payload = append(r.Payload, b...)
-
 	switch r.ErrorID {
 	case consensusOk:
 		return r, nil
