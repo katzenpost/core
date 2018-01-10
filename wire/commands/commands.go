@@ -36,8 +36,8 @@ const (
 	messageMsgPaddingLength = sphinxConstants.SURBIDLength + constants.SphinxPlaintextHeaderLength + sphinx.SURBLength + sphinx.PayloadTagLength
 	messageEmptyLength      = messageACKLength + sphinx.PayloadTagLength + constants.ForwardPayloadLength
 
-	getConsensusLength     = 8
-	consensusErrorIdLength = 1
+	getConsensusLength  = 8
+	consensusBaseLength = 1
 
 	messageTypeMessage messageType = 0
 	messageTypeACK     messageType = 1
@@ -54,17 +54,22 @@ const (
 	getConsensus    commandID = 18
 	consensus       commandID = 19
 
-	// Consensus error codes.
-	consensusOk       = 0
-	consensusNotFound = 1
-	consensusGone     = 2
+	// ConsensusOk signifies that the GetConsensus request has completed
+	// successfully.
+	ConsensusOk = 0
+
+	// ConsensusNotFound signifies that the document document corresponding
+	// to the epoch in the GetConsensus was not found, but retrying later
+	// may be successful.
+	ConsensusNotFound = 1
+
+	// ConsensusGone signifies that the document corresponding to the epoch
+	// in the GetConsensus was not found, and that retrying later will
+	// not be successful.
+	ConsensusGone = 2
 )
 
-var (
-	errInvalidCommand    = errors.New("wire: invalid wire protocol command")
-	errConsensusNotFound = errors.New("wire: consensus not found")
-	errConsensusGone     = errors.New("wire: consensus gone")
-)
+var errInvalidCommand = errors.New("wire: invalid wire protocol command")
 
 type (
 	commandID   byte
@@ -87,10 +92,8 @@ func (c NoOp) ToBytes() []byte {
 	return out
 }
 
-// GetConsensus is a command which clients can use to retreive a
-// cached PKI consensus document from their Provider.
+// GetConsensus is a de-serialized get_consensus command.
 type GetConsensus struct {
-	// Epoch species the epoch for the consensus query.
 	Epoch uint64
 }
 
@@ -113,47 +116,35 @@ func getConsensusFromBytes(b []byte) (Command, error) {
 	return r, nil
 }
 
-// Consensus is a command which is used to transport a cached PKI consensus file.
+// Consensus is a de-serialiaed consensus command.
 type Consensus struct {
-	// ErrorID is a one byte error field where the following values
-	// are defined as consensusOK and error states:
-	// consensusOk       = 0
-	// consensusNotFound = 1
-	// consensusGone     = 2
-	ErrorID uint8
-	// Payload contains the consensus document unless a non-zero ErrorID was specified.
-	Payload []byte
+	ErrorCode uint8
+	Payload   []byte
 }
 
-// ToBytes serializes the GetConsensus, returns the resulting byte slice.
+// ToBytes serializes the Consensus, returns the resulting byte slice.
 func (c Consensus) ToBytes() []byte {
-	consensusLength := uint32(consensusErrorIdLength + len(c.Payload))
-	out := make([]byte, cmdOverhead, cmdOverhead+consensusLength)
+	consensusLength := uint32(consensusBaseLength + len(c.Payload))
+	out := make([]byte, cmdOverhead+consensusBaseLength, cmdOverhead+consensusLength)
 	out[0] = byte(consensus) // out[1] is reserved
 	binary.BigEndian.PutUint32(out[2:6], consensusLength)
-	out = append(out, byte(c.ErrorID))
+	out[6] = c.ErrorCode
 	out = append(out, c.Payload...)
 	return out
 }
 
-// consenusFromBytes returns a Consensus and an error.
 func consensusFromBytes(b []byte) (Command, error) {
-	r := new(Consensus)
-	r.ErrorID = uint8(b[0])
-	payloadSize := len(b) - consensusErrorIdLength
-	b = b[consensusErrorIdLength:]
-	r.Payload = make([]byte, 0, payloadSize)
-	r.Payload = append(r.Payload, b...)
-	switch r.ErrorID {
-	case consensusOk:
-		return r, nil
-	case consensusNotFound:
-		return r, errConsensusNotFound
-	case consensusGone:
-		return r, errConsensusGone
-	default:
-		return r, errInvalidCommand
+	if len(b) < consensusBaseLength {
+		return nil, errInvalidCommand
 	}
+
+	r := new(Consensus)
+	r.ErrorCode = b[0]
+	if payloadLength := len(b) - consensusBaseLength; payloadLength > 0 {
+		r.Payload = make([]byte, 0, payloadLength)
+		r.Payload = append(r.Payload, b[consensusBaseLength:]...)
+	}
+	return r, nil
 }
 
 // Disconnect is a de-serialized disconnect command.

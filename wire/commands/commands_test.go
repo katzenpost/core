@@ -176,50 +176,25 @@ func TestConsensus(t *testing.T) {
 
 	cmd := &Consensus{
 		Payload: []byte("TANSTAFL: There's ain't no such thing as a free lunch."),
+		ErrorCode: ConsensusOk,
 	}
 	b := cmd.ToBytes()
-	require.Equal(len(b), 1+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
+	require.Len(b, consensusBaseLength+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
 	c, err := FromBytes(b)
 	require.NoError(err, "Consensus: FromBytes() failed")
 	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
 	d := c.(*Consensus)
 	require.Equal(d.Payload, cmd.Payload)
-	require.Equal(d.ErrorID, cmd.ErrorID)
+	require.Equal(d.ErrorCode, cmd.ErrorCode)
 
-	cmd = &Consensus{
-		Payload: []byte{},
-		ErrorID: consensusOk,
-	}
+	cmd.Payload = nil
+	cmd.ErrorCode = ConsensusNotFound // Just set it to something non 0.
 	b = cmd.ToBytes()
-	require.Equal(len(b), 1+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
+	require.Len(b, consensusBaseLength+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
 	c, err = FromBytes(b)
 	require.NoError(err, "Consensus: FromBytes() failed")
 	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
 	d = c.(*Consensus)
 	require.Equal(d.Payload, cmd.Payload)
-	require.Equal(d.ErrorID, cmd.ErrorID)
-
-	cmd = &Consensus{
-		Payload: []byte{},
-		ErrorID: consensusNotFound,
-	}
-	b = cmd.ToBytes()
-	require.Equal(len(b), 1+len(cmd.Payload)+cmdOverhead, "GetConsensus: ToBytes() length")
-	c, err = FromBytes(b)
-	require.Error(err, errConsensusNotFound)
-	require.IsType(cmd, c, "Consensus: FromBytes() invalid type")
-	d = c.(*Consensus)
-	require.Equal(d.Payload, cmd.Payload)
-	require.Equal(d.ErrorID, cmd.ErrorID)
-
-	cmd.ErrorID = consensusGone
-	b = cmd.ToBytes()
-	c, err = FromBytes(b)
-	require.Error(err, errConsensusGone)
-
-	cmd.ErrorID = 0xF0
-	b = cmd.ToBytes()
-	c, err = FromBytes(b)
-	require.Error(err, errInvalidCommand)
-
+	require.Equal(d.ErrorCode, cmd.ErrorCode)
 }
