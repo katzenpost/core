@@ -116,7 +116,7 @@ func getConsensusFromBytes(b []byte) (Command, error) {
 	return r, nil
 }
 
-// Consensus is a de-serialiaed consensus command.
+// Consensus is a de-serialized consensus command.
 type Consensus struct {
 	ErrorCode uint8
 	Payload   []byte
