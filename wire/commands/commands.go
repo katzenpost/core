@@ -21,6 +21,7 @@ import (
 	"errors"
 
 	"github.com/katzenpost/core/constants"
+	"github.com/katzenpost/core/crypto/ecdh"
 	"github.com/katzenpost/core/sphinx"
 	sphinxConstants "github.com/katzenpost/core/sphinx/constants"
 	"github.com/katzenpost/core/utils"
@@ -42,6 +43,10 @@ const (
 	postDescriptorStatusLength = 1
 	postDescriptorLength       = 8
 
+	maxAdditionalDataLength = 255
+	voteOverhead            = 8 + 32 + 1 + maxAdditionalDataLength
+	voteStatusLength        = 1
+
 	messageTypeMessage messageType = 0
 	messageTypeACK     messageType = 1
 	messageTypeEmpty   messageType = 2
@@ -58,6 +63,8 @@ const (
 	consensus            commandID = 19
 	postDescriptor       commandID = 20
 	postDescriptorStatus commandID = 21
+	vote                 commandID = 22
+	voteStatus           commandID = 23
 
 	// ConsensusOk signifies that the GetConsensus request has completed
 	// successfully.
@@ -220,6 +227,70 @@ func (c *PostDescriptorStatus) ToBytes() []byte {
 	binary.BigEndian.PutUint32(out[2:6], postDescriptorStatusLength)
 	out[6] = c.ErrorCode
 	return out
+}
+
+// Vote is a vote which is exchanged by Directory Authorities
+type Vote struct {
+	Epoch          uint64
+	PublicKey      *ecdh.PublicKey
+	AdditionalData []byte
+	Payload        []byte
+}
+
+func voteFromBytes(b []byte) (Command, error) {
+	r := new(Vote)
+	r.Epoch = binary.BigEndian.Uint64(b[0:8])
+	r.PublicKey = new(ecdh.PublicKey)
+	err := r.PublicKey.FromBytes(b[8:40])
+	if err != nil {
+		return nil, err
+	}
+	adLen := int(b[40])
+	r.AdditionalData = make([]byte, 0, adLen)
+	r.AdditionalData = append(r.AdditionalData, b[41:41+adLen]...)
+	r.Payload = make([]byte, 0, len(b)-voteOverhead)
+	r.Payload = append(r.Payload, b[voteOverhead:]...)
+	return r, nil
+}
+
+func (c *Vote) ToBytes() []byte {
+	if len(c.AdditionalData) > maxAdditionalDataLength {
+		panic("wire/session: invalid AuthenticateMessage AD length")
+	}
+	out := make([]byte, cmdOverhead+8, cmdOverhead+voteOverhead+len(c.Payload))
+	out[0] = byte(vote)
+	binary.BigEndian.PutUint32(out[2:6], uint32(voteOverhead+len(c.Payload)))
+	binary.BigEndian.PutUint64(out[6:14], c.Epoch)
+	out = append(out, c.PublicKey.Bytes()...)
+	var zeroBytes [maxAdditionalDataLength]byte
+	out = append(out, uint8(len(c.AdditionalData)))
+	out = append(out, c.AdditionalData...)
+	out = append(out, zeroBytes[:len(zeroBytes)-len(c.AdditionalData)]...)
+	out = append(out, c.Payload...)
+	return out
+}
+
+// VoteStatus is a resonse status for a Vote command
+type VoteStatus struct {
+	ErrorCode uint8
+}
+
+func (c *VoteStatus) ToBytes() []byte {
+	out := make([]byte, cmdOverhead+voteStatusLength)
+	out[0] = byte(voteStatus)
+	binary.BigEndian.PutUint32(out[2:6], voteStatusLength)
+	out[6] = c.ErrorCode
+	return out
+}
+
+func voteStatusFromBytes(b []byte) (Command, error) {
+	if len(b) < voteStatusLength {
+		return nil, errInvalidCommand
+	}
+
+	r := new(VoteStatus)
+	r.ErrorCode = b[0]
+	return r, nil
 }
 
 // Disconnect is a de-serialized disconnect command.
@@ -457,6 +528,10 @@ func FromBytes(b []byte) (Command, error) {
 		return postDescriptorFromBytes(b)
 	case postDescriptorStatus:
 		return postDescriptorStatusFromBytes(b)
+	case vote:
+		return voteFromBytes(b)
+	case voteStatus:
+		return voteStatusFromBytes(b)
 	default:
 		return nil, errInvalidCommand
 	}
