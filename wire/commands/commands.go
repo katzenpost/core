@@ -306,7 +306,7 @@ type SendPacket struct {
 }
 
 // ToBytes serializes the SendPacket and returns the resulting slice.
-func (c *SendPacket) ToBytes() []byte {
+func (c SendPacket) ToBytes() []byte {
 	out := make([]byte, cmdOverhead, cmdOverhead+len(c.SphinxPacket))
 	out[0] = byte(sendPacket)
 	binary.BigEndian.PutUint32(out[2:6], uint32(len(c.SphinxPacket)))
