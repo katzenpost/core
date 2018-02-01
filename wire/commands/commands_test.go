@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/katzenpost/core/constants"
-	"github.com/katzenpost/core/crypto/ecdh"
+	"github.com/katzenpost/core/crypto/eddsa"
 	"github.com/katzenpost/core/sphinx"
 	sphinxConstants "github.com/katzenpost/core/sphinx/constants"
 	"github.com/stretchr/testify/require"
@@ -237,13 +237,12 @@ func TestPostDescriptorStatus(t *testing.T) {
 func TestVote(t *testing.T) {
 	require := require.New(t)
 
-	alice, err := ecdh.NewKeypair(rand.Reader)
+	alice, err := eddsa.NewKeypair(rand.Reader)
 	require.NoError(err, "wtf")
 	cmd := &Vote{
-		Epoch:          3141,
-		PublicKey:      alice.PublicKey(),
-		AdditionalData: []byte("providerZero"),
-		Payload:        []byte{1, 2, 3, 4},
+		Epoch:     3141,
+		PublicKey: alice.PublicKey(),
+		Payload:   []byte{1, 2, 3, 4},
 	}
 	b := cmd.ToBytes()
 	require.Len(b, cmdOverhead+voteOverhead+len(cmd.Payload), "Vote: ToBytes() length")
@@ -253,7 +252,6 @@ func TestVote(t *testing.T) {
 	d := c.(*Vote)
 	require.Equal(d.Epoch, cmd.Epoch)
 	require.Equal(d.PublicKey.Bytes(), cmd.PublicKey.Bytes())
-	require.Equal(d.AdditionalData, cmd.AdditionalData)
 	require.Equal(d.Payload, cmd.Payload)
 }
 

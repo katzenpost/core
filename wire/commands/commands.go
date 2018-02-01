@@ -21,7 +21,7 @@ import (
 	"errors"
 
 	"github.com/katzenpost/core/constants"
-	"github.com/katzenpost/core/crypto/ecdh"
+	"github.com/katzenpost/core/crypto/eddsa"
 	"github.com/katzenpost/core/sphinx"
 	sphinxConstants "github.com/katzenpost/core/sphinx/constants"
 	"github.com/katzenpost/core/utils"
@@ -43,9 +43,8 @@ const (
 	postDescriptorStatusLength = 1
 	postDescriptorLength       = 8
 
-	maxAdditionalDataLength = 255
-	voteOverhead            = 8 + 32 + 1 + maxAdditionalDataLength
-	voteStatusLength        = 1
+	voteOverhead     = 8 + 32
+	voteStatusLength = 1
 
 	messageTypeMessage messageType = 0
 	messageTypeACK     messageType = 1
@@ -96,6 +95,15 @@ const (
 	// DescriptorForbidden signifies that the PostDescriptor request has
 	// failed due to an authentication error.
 	DescriptorForbidden = 3
+
+	// VoteOk signifies that the vote was accepted by the peer.
+	VoteOk = 0
+
+	// VoteTooLate signifies that the vote was too late.
+	VoteTooLate = 1
+
+	// VoteTooEarly signifies that the vote was too late.
+	VoteTooEarly = 2
 )
 
 var errInvalidCommand = errors.New("wire: invalid wire protocol command")
@@ -231,41 +239,30 @@ func (c *PostDescriptorStatus) ToBytes() []byte {
 
 // Vote is a vote which is exchanged by Directory Authorities
 type Vote struct {
-	Epoch          uint64
-	PublicKey      *ecdh.PublicKey
-	AdditionalData []byte
-	Payload        []byte
+	Epoch     uint64
+	PublicKey *eddsa.PublicKey
+	Payload   []byte
 }
 
 func voteFromBytes(b []byte) (Command, error) {
 	r := new(Vote)
 	r.Epoch = binary.BigEndian.Uint64(b[0:8])
-	r.PublicKey = new(ecdh.PublicKey)
+	r.PublicKey = new(eddsa.PublicKey)
 	err := r.PublicKey.FromBytes(b[8:40])
 	if err != nil {
 		return nil, err
 	}
-	adLen := int(b[40])
-	r.AdditionalData = make([]byte, 0, adLen)
-	r.AdditionalData = append(r.AdditionalData, b[41:41+adLen]...)
 	r.Payload = make([]byte, 0, len(b)-voteOverhead)
 	r.Payload = append(r.Payload, b[voteOverhead:]...)
 	return r, nil
 }
 
 func (c *Vote) ToBytes() []byte {
-	if len(c.AdditionalData) > maxAdditionalDataLength {
-		panic("wire/session: invalid AuthenticateMessage AD length")
-	}
 	out := make([]byte, cmdOverhead+8, cmdOverhead+voteOverhead+len(c.Payload))
 	out[0] = byte(vote)
 	binary.BigEndian.PutUint32(out[2:6], uint32(voteOverhead+len(c.Payload)))
 	binary.BigEndian.PutUint64(out[6:14], c.Epoch)
 	out = append(out, c.PublicKey.Bytes()...)
-	var zeroBytes [maxAdditionalDataLength]byte
-	out = append(out, uint8(len(c.AdditionalData)))
-	out = append(out, c.AdditionalData...)
-	out = append(out, zeroBytes[:len(zeroBytes)-len(c.AdditionalData)]...)
 	out = append(out, c.Payload...)
 	return out
 }
