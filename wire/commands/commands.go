@@ -104,6 +104,12 @@ const (
 
 	// VoteTooEarly signifies that the vote was too late.
 	VoteTooEarly = 2
+
+	// VoteNotAuthorized signifies that the voting entity's key is not white-listed.
+	VoteNotAuthorized = 3
+
+	// VoteNotSigned signifies that the vote payload failed signature verification.
+	VoteNotSigned = 4
 )
 
 var errInvalidCommand = errors.New("wire: invalid wire protocol command")
