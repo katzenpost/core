@@ -252,7 +252,7 @@ type Vote struct {
 
 func voteFromBytes(b []byte) (Command, error) {
 	r := new(Vote)
-	if len(b) < 12 {
+	if len(b) < voteOverhead {
 		return nil, errInvalidCommand
 	}
 	r.Epoch = binary.BigEndian.Uint64(b[0:8])
