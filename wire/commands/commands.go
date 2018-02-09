@@ -43,7 +43,7 @@ const (
 	postDescriptorStatusLength = 1
 	postDescriptorLength       = 8
 
-	voteOverhead     = 8 + 32
+	voteOverhead     = 8 + eddsa.PublicKeySize
 	voteStatusLength = 1
 
 	messageTypeMessage messageType = 0
@@ -243,7 +243,7 @@ func (c *PostDescriptorStatus) ToBytes() []byte {
 	return out
 }
 
-// Vote is a vote which is exchanged by Directory Authorities
+// Vote is a vote which is exchanged by Directory Authorities.
 type Vote struct {
 	Epoch     uint64
 	PublicKey *eddsa.PublicKey
@@ -252,6 +252,9 @@ type Vote struct {
 
 func voteFromBytes(b []byte) (Command, error) {
 	r := new(Vote)
+	if len(b) < 12 {
+		return nil, errInvalidCommand
+	}
 	r.Epoch = binary.BigEndian.Uint64(b[0:8])
 	r.PublicKey = new(eddsa.PublicKey)
 	err := r.PublicKey.FromBytes(b[8:40])
@@ -273,7 +276,7 @@ func (c *Vote) ToBytes() []byte {
 	return out
 }
 
-// VoteStatus is a resonse status for a Vote command
+// VoteStatus is a resonse status for a Vote command.
 type VoteStatus struct {
 	ErrorCode uint8
 }
@@ -287,7 +290,7 @@ func (c *VoteStatus) ToBytes() []byte {
 }
 
 func voteStatusFromBytes(b []byte) (Command, error) {
-	if len(b) < voteStatusLength {
+	if len(b) != voteStatusLength {
 		return nil, errInvalidCommand
 	}
 
