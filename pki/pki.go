@@ -158,6 +158,11 @@ func (d *Document) GetMixByKey(key []byte) (*MixDescriptor, error) {
 			}
 		}
 	}
+	for _, p := range d.Providers {
+		if bytes.Equal(p.IdentityKey.Bytes(), key) {
+			return p, nil
+		}
+	}
 	return nil, fmt.Errorf("pki: mix not found")
 }
 
