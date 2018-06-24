@@ -374,7 +374,7 @@ type RegisterAccount struct {
 	Identity []byte
 }
 
-func registrationFromBytes(b []byte) (Command, error) {
+func registerAccountFromBytes(b []byte) (Command, error) {
 	if len(b) < registerAccountLength + minIdentityLength {
 		return nil, errInvalidCommand
 	}
@@ -387,18 +387,18 @@ func registrationFromBytes(b []byte) (Command, error) {
 	}
 	// XXX: maximum length per database column size
 	r.Identity = make([]byte, 0, len(b)-registerAccountLength)
-	r.Identity = append(r.Identity, b[registerAccountLength:])
+	r.Identity = append(r.Identity, b[registerAccountLength:len(b)]...)
 	return r, nil
 }
 
 // ToBytes serializes the RevealStatus and returns the resulting byte slice.
 func (r *RegisterAccount) ToBytes() []byte {
-	out := make([]byte, cmdOverhead+(2*eddsa.PublicKeySize), cmdOverhead+(2*eddsa.PublicKeySize) +len(c.Identity))
+	out := make([]byte, cmdOverhead+(2*eddsa.PublicKeySize), cmdOverhead+(2*eddsa.PublicKeySize) +len(r.Identity))
 	out[0] = byte(registerAccount)
 	// out[1] is reserved
-	out[2:2 + eddsa.PublicKeySize] = r.PublicKey
-	out[2 + eddsa.PublicKeySize:2 + 2* eddsa.PublicKeySize] = r.LinkKey
-	out = append(out, r.Identity)
+	copy(out[2:2 + eddsa.PublicKeySize], r.PublicKey.Bytes())
+	copy(out[2 + eddsa.PublicKeySize:2 + 2* eddsa.PublicKeySize], r.LinkKey.Bytes())
+	out = append(out, r.Identity[:]...)
 	return out
 }
 
