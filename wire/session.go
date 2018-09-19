@@ -23,6 +23,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/katzenpost/core/crypto/ecdh"
@@ -119,6 +120,8 @@ type SessionInterface interface {
 
 // Session is a wire protocol session.
 type Session struct {
+	sync.RWMutex
+
 	conn net.Conn
 
 	peerCredentials *PeerCredentials
@@ -313,6 +316,9 @@ func (s *Session) finalizeHandshake() error {
 // Initialize takes an establised net.Conn, and binds it to a Session, and
 // conducts the wire protocol handshake.
 func (s *Session) Initialize(conn net.Conn) error {
+	s.Lock()
+	defer s.Unlock()
+
 	if s.state != stateInit {
 		return errInvalidState
 	}
@@ -330,6 +336,9 @@ func (s *Session) Initialize(conn net.Conn) error {
 
 // SendCommand sends the wire protocol command cmd.
 func (s *Session) SendCommand(cmd commands.Command) error {
+	s.Lock()
+	defer s.Unlock()
+
 	if s.state != stateEstablished {
 		return errInvalidState
 	}
@@ -365,6 +374,9 @@ func (s *Session) SendCommand(cmd commands.Command) error {
 
 // RecvCommand receives a wire protocol command off the network.
 func (s *Session) RecvCommand() (commands.Command, error) {
+	s.Lock()
+	defer s.Unlock()
+
 	cmd, err := s.recvCommandImpl()
 	if err != nil {
 		// All receive errors are fatal.
@@ -409,6 +421,9 @@ func (s *Session) recvCommandImpl() (commands.Command, error) {
 
 // Close terminates a session.
 func (s *Session) Close() {
+	s.Lock()
+	defer s.Unlock()
+
 	// The Noise library doesn't have a way to explcitly clear cryptographic
 	// state.  Without an underlying crypto break, Rekey() is backtracking
 	// resistant.
@@ -428,6 +443,9 @@ func (s *Session) Close() {
 // PeerCredentials returns the peer's credentials.  This call MUST only be
 // called from a session that has succesfully completed Initialize().
 func (s *Session) PeerCredentials() *PeerCredentials {
+	s.RLock()
+	defer s.RUnlock()
+
 	if s.state < stateEstablished {
 		panic("wire/session: PeerCredentials() call in invalid state")
 	}
@@ -439,6 +457,9 @@ func (s *Session) PeerCredentials() *PeerCredentials {
 // from a session that has successfully completed Initialize(), and the peer is
 // the responder.
 func (s *Session) ClockSkew() time.Duration {
+	s.RLock()
+	defer s.RUnlock()
+
 	if !s.isInitiator {
 		panic("wire/session: ClockSkew() call by responder")
 	}
