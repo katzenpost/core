@@ -57,36 +57,21 @@ type Document struct {
 	// that clients will sample to determine send timing.
 	SendLambda float64
 
-	// SendShift is the shift applied to the client send timing samples in
-	// milliseconds.
-	SendShift uint64
-
-	// SendMaxInterval is the maximum send interval in milliseconds, enforced
-	// prior to (excluding) SendShift.
+	// SendMaxInterval is the maximum send interval in milliseconds.
 	SendMaxInterval uint64
 
 	// DropLambda is the inverse of the mean of the exponential distribution
 	// that clients will sample to determine send timing of drop decoy messages.
 	DropLambda float64
 
-	// DropShift is the shift applied to the client send timing samples in
-	// milliseconds.
-	DropShift uint64
-
-	// DropMaxInterval is the maximum send interval in milliseconds, enforced
-	// prior to (excluding) DropShift.
+	// DropMaxInterval is the maximum send interval in milliseconds.
 	DropMaxInterval uint64
 
 	// LoopLambda is the inverse of the mean of the exponential distribution
 	// that clients will sample to determine send timing.
 	LoopLambda float64
 
-	// LoopShift is the shift applied to the client send timing samples in
-	// milliseconds.
-	LoopShift uint64
-
-	// LoopMaxInterval is the maximum send interval in milliseconds, enforced
-	// prior to (excluding) SendShift.
+	// LoopMaxInterval is the maximum send interval in milliseconds.
 	LoopMaxInterval uint64
 
 	// Topology is the mix network topology, excluding providers.
@@ -110,7 +95,7 @@ func (d *Document) String() string {
 		return s
 	}
 
-	s := fmt.Sprintf("&{Epoch:%v MixLambda:%v MixMaxDelay:%v SendLambda:%v SendShift: %v SendMaxInterval: %v Topology:", d.Epoch, d.MixLambda, d.MixMaxDelay, d.SendLambda, d.SendShift, d.SendMaxInterval)
+	s := fmt.Sprintf("&{Epoch:%v MixLambda:%v MixMaxDelay:%v SendLambda:%v SendMaxInterval: %v Topology:", d.Epoch, d.MixLambda, d.MixMaxDelay, d.SendLambda, d.SendMaxInterval)
 	for l, nodes := range d.Topology {
 		s += fmt.Sprintf("[%v]{", l)
 		s += stringifyDescSlice(nodes)
