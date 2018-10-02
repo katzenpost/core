@@ -40,12 +40,6 @@ const (
 	authLen   = 1 + MaxAdditionalDataLength + 4
 )
 
-const (
-	stateInit sessionState = iota
-	stateEstablished
-	stateInvalid
-)
-
 var (
 	errInvalidState         = errors.New("wire/session: invalid state")
 	errAuthenticationFailed = errors.New("wire/session: authentication failed")
@@ -132,16 +126,12 @@ type Session struct {
 	rx         *noise.CipherState
 
 	clockSkew   time.Duration
-	state       sessionState
 	isInitiator bool
 }
 
 func (s *Session) handshake() error {
 	defer func() {
 		s.authenticationKey.Reset() // Don't need this anymore, and s has a copy.
-		if s.state != stateEstablished {
-			s.state = stateInvalid
-		}
 	}()
 	prologue := []byte{0x00}
 
@@ -285,7 +275,6 @@ func (s *Session) handshake() error {
 		}
 	}
 
-	s.state = stateEstablished
 	return nil
 }
 
@@ -313,16 +302,12 @@ func (s *Session) finalizeHandshake() error {
 // Initialize takes an establised net.Conn, and binds it to a Session, and
 // conducts the wire protocol handshake.
 func (s *Session) Initialize(conn net.Conn) error {
-	if s.state != stateInit {
-		return errInvalidState
-	}
 	s.conn = conn
 
 	if err := s.handshake(); err != nil {
 		return err
 	}
 	if err := s.finalizeHandshake(); err != nil {
-		s.state = stateInvalid
 		return err
 	}
 	return nil
@@ -330,10 +315,6 @@ func (s *Session) Initialize(conn net.Conn) error {
 
 // SendCommand sends the wire protocol command cmd.
 func (s *Session) SendCommand(cmd commands.Command) error {
-	if s.state != stateEstablished {
-		return errInvalidState
-	}
-
 	// XXX: Figure out if padding is actually needed, and append it as
 	// neccecary.  As it stands right now, it might not be, as the `message`
 	// command's various responses all have identical sizes.
@@ -356,28 +337,16 @@ func (s *Session) SendCommand(cmd commands.Command) error {
 	s.tx.Rekey()
 
 	_, err := s.conn.Write(toSend)
-	if err != nil {
-		// All write errors are fatal.
-		s.state = stateInvalid
-	}
 	return err
 }
 
 // RecvCommand receives a wire protocol command off the network.
 func (s *Session) RecvCommand() (commands.Command, error) {
 	cmd, err := s.recvCommandImpl()
-	if err != nil {
-		// All receive errors are fatal.
-		s.state = stateInvalid
-	}
 	return cmd, err
 }
 
 func (s *Session) recvCommandImpl() (commands.Command, error) {
-	if s.state != stateEstablished {
-		return nil, errInvalidState
-	}
-
 	// Read, decrypt and parse the CiphertextHeader.
 	var ctHdrCt [macLen + 4]byte
 	if _, err := io.ReadFull(s.conn, ctHdrCt[:]); err != nil {
@@ -422,15 +391,11 @@ func (s *Session) Close() {
 	if s.conn != nil {
 		s.conn.Close()
 	}
-	s.state = stateInvalid
 }
 
 // PeerCredentials returns the peer's credentials.  This call MUST only be
 // called from a session that has succesfully completed Initialize().
 func (s *Session) PeerCredentials() *PeerCredentials {
-	if s.state < stateEstablished {
-		panic("wire/session: PeerCredentials() call in invalid state")
-	}
 	return s.peerCredentials
 }
 
@@ -441,9 +406,6 @@ func (s *Session) PeerCredentials() *PeerCredentials {
 func (s *Session) ClockSkew() time.Duration {
 	if !s.isInitiator {
 		panic("wire/session: ClockSkew() call by responder")
-	}
-	if s.state < stateEstablished {
-		panic("wire/session: ClockSkew() call in invalid state")
 	}
 	return s.clockSkew
 }
