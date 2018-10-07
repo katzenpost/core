@@ -45,6 +45,14 @@ type Document struct {
 	// Epoch is the epoch for which this Document instance is valid for.
 	Epoch uint64
 
+	// SendTokenDuration is the duration is milliseconds for a token in
+	// the leaky bucket rate limiting system.
+	SendTokenDuration uint64
+
+	// MaxSendTokens is the maximum number of tokens a bucket can contain
+	// in the rate limiting system. This is essentially the max burst.
+	MaxSendTokens uint64
+
 	// MixLambda is the inverse of the mean of the exponential distribution
 	// that the Sphinx packet per-hop mixing delay will be sampled from.
 	MixLambda float64
