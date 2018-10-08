@@ -56,7 +56,7 @@ selectLoop:
 		path = make([]*sphinx.PathHop, 0, len(descs))
 		for idx, desc := range descs {
 			h := &sphinx.PathHop{}
-			copy(h.ID[:], desc.IdentityKey.Bytes())
+			copy(h.ID[:], desc.SigningKey.Bytes())
 			epoch, _, _ := epochtime.FromUnix(then.Unix())
 			if k, ok := desc.MixKeys[epoch]; !ok {
 				continue selectLoop
