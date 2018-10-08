@@ -1,5 +1,5 @@
 // pki.go - Mixnet PKI interfaces
-// Copyright (C) 2017  David Stainton, Yawning Angel.
+// Copyright (C) 2017, 2018  David Stainton, Yawning Angel.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as
@@ -139,10 +139,10 @@ func (d *Document) GetProvider(name string) (*MixDescriptor, error) {
 // to the specified IdentityKey.
 func (d *Document) GetProviderByKey(key []byte) (*MixDescriptor, error) {
 	for _, v := range d.Providers {
-		if v.IdentityKey == nil {
+		if v.SigningKey == nil || v.MasterKey == nil {
 			return nil, fmt.Errorf("pki: document contains invalid descriptors")
 		}
-		if bytes.Equal(v.IdentityKey.Bytes(), key) {
+		if bytes.Equal(v.SigningKey.Bytes(), key) {
 			return v, nil
 		}
 	}
@@ -174,10 +174,10 @@ func (d *Document) GetMixesInLayer(layer uint8) ([]*MixDescriptor, error) {
 func (d *Document) GetMixByKey(key []byte) (*MixDescriptor, error) {
 	for _, l := range d.Topology {
 		for _, v := range l {
-			if v.IdentityKey == nil {
+			if v.SigningKey == nil || v.MasterKey == nil {
 				return nil, fmt.Errorf("pki: document contains invalid descriptors")
 			}
-			if bytes.Equal(v.IdentityKey.Bytes(), key) {
+			if bytes.Equal(v.SigningKey.Bytes(), key) {
 				return v, nil
 			}
 		}
@@ -240,8 +240,11 @@ type MixDescriptor struct {
 	// Name is the human readable (descriptive) node identifier.
 	Name string
 
-	// IdentityKey is the node's identity (signing) key.
-	IdentityKey *eddsa.PublicKey
+	// MasterKey is the node's master key.
+	MasterKey *eddsa.PublicKey
+
+	// SigningKey is the node's signing key.
+	SigningKey *eddsa.PublicKey
 
 	// LinkKey is the node's wire protocol public key.
 	LinkKey *ecdh.PublicKey
