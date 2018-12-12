@@ -23,7 +23,7 @@ import (
 	"errors"
 	"io"
 	"net"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/katzenpost/core/crypto/ecdh"
@@ -42,9 +42,9 @@ const (
 )
 
 const (
-	stateInit        uint32 = 0
-	stateEstablished uint32 = 1
-	stateInvalid     uint32 = 2
+	stateInit        = 0
+	stateEstablished = 1
+	stateInvalid     = 2
 )
 
 var (
@@ -120,6 +120,7 @@ type SessionInterface interface {
 
 // Session is a wire protocol session.
 type Session struct {
+	sync.RWMutex
 	conn net.Conn
 
 	peerCredentials *PeerCredentials
@@ -133,14 +134,17 @@ type Session struct {
 	rx         *noise.CipherState
 
 	clockSkew   time.Duration
-	state       uint32
+	state       int
 	isInitiator bool
 }
 
 func (s *Session) handshake() error {
+	// s.Lock() held from Initialize()
 	defer func() {
 		s.authenticationKey.Reset() // Don't need this anymore, and s has a copy.
-		atomic.CompareAndSwapUint32(&s.state, stateInit, stateInvalid)
+		if s.state == stateInit {
+			s.state = stateInvalid
+		}
 	}()
 	prologue := []byte{0x00}
 
@@ -284,7 +288,7 @@ func (s *Session) handshake() error {
 		}
 	}
 
-	atomic.StoreUint32(&s.state, stateEstablished)
+	s.state = stateEstablished
 	return nil
 }
 
@@ -312,7 +316,9 @@ func (s *Session) finalizeHandshake() error {
 // Initialize takes an establised net.Conn, and binds it to a Session, and
 // conducts the wire protocol handshake.
 func (s *Session) Initialize(conn net.Conn) error {
-	if atomic.LoadUint32(&s.state) != stateInit {
+	s.Lock()
+	if s.state != stateInit {
+		s.Unlock()
 		return errInvalidState
 	}
 	s.conn = conn
@@ -320,8 +326,11 @@ func (s *Session) Initialize(conn net.Conn) error {
 	if err := s.handshake(); err != nil {
 		return err
 	}
+	s.Unlock() // s.finalizeHandshake() calls s.RecvCommand(), which calls s.RLock()
 	if err := s.finalizeHandshake(); err != nil {
-		atomic.StoreUint32(&s.state, stateInvalid)
+		s.Lock()
+		defer s.Unlock()
+		s.state = stateInvalid
 		return err
 	}
 	return nil
@@ -329,7 +338,9 @@ func (s *Session) Initialize(conn net.Conn) error {
 
 // SendCommand sends the wire protocol command cmd.
 func (s *Session) SendCommand(cmd commands.Command) error {
-	if atomic.LoadUint32(&s.state) != stateEstablished {
+	s.RLock()
+	defer s.RUnlock()
+	if s.state != stateEstablished {
 		return errInvalidState
 	}
 
@@ -357,23 +368,30 @@ func (s *Session) SendCommand(cmd commands.Command) error {
 	_, err := s.conn.Write(toSend)
 	if err != nil {
 		// All write errors are fatal.
-		atomic.StoreUint32(&s.state, stateInvalid)
+		s.Lock()
+		s.state = stateInvalid
+		s.Unlock()
 	}
 	return err
 }
 
 // RecvCommand receives a wire protocol command off the network.
 func (s *Session) RecvCommand() (commands.Command, error) {
+	s.RLock()
 	cmd, err := s.recvCommandImpl()
+	s.RUnlock()
 	if err != nil {
 		// All receive errors are fatal.
-		atomic.StoreUint32(&s.state, stateInvalid)
+		s.Lock()
+		s.state = stateInvalid
+		s.Unlock()
 	}
 	return cmd, err
 }
 
 func (s *Session) recvCommandImpl() (commands.Command, error) {
-	if atomic.LoadUint32(&s.state) != stateEstablished {
+	// Rlock held from RecvCommand()
+	if s.state != stateEstablished {
 		return nil, errInvalidState
 	}
 
@@ -421,13 +439,17 @@ func (s *Session) Close() {
 	if s.conn != nil {
 		s.conn.Close()
 	}
-	atomic.StoreUint32(&s.state, stateInvalid)
+	s.Lock()
+	s.state = stateInvalid
+	s.Unlock()
 }
 
 // PeerCredentials returns the peer's credentials.  This call MUST only be
 // called from a session that has succesfully completed Initialize().
 func (s *Session) PeerCredentials() *PeerCredentials {
-	if atomic.LoadUint32(&s.state) != stateEstablished {
+	s.RLock()
+	defer s.RUnlock()
+	if s.state != stateEstablished {
 		panic("wire/session: PeerCredentials() call in invalid state")
 	}
 	return s.peerCredentials
@@ -438,10 +460,12 @@ func (s *Session) PeerCredentials() *PeerCredentials {
 // from a session that has successfully completed Initialize(), and the peer is
 // the responder.
 func (s *Session) ClockSkew() time.Duration {
+	s.RLock()
+	defer s.RUnlock()
 	if !s.isInitiator {
 		panic("wire/session: ClockSkew() call by responder")
 	}
-	if atomic.LoadUint32(&s.state) != stateEstablished {
+	if s.state != stateEstablished {
 		panic("wire/session: ClockSkew() call in invalid state")
 	}
 	return s.clockSkew
