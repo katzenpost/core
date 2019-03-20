@@ -63,31 +63,31 @@ type Document struct {
 	// is empty.
 	LambdaP float64
 
-	// LambdaPMaxInterval is the maximum time interval in milliseconds.
-	LambdaPMaxInterval uint64
+	// LambdaPMaxDelay is the maximum time interval in milliseconds.
+	LambdaPMaxDelay uint64
 
 	// LambdaL is the inverse of the mean of the exponential distribution
 	// that clients will sample to determine the time interval between sending
 	// decoy loop messages.
 	LambdaL float64
 
-	// LambdaLMaxInterval is the maximum time interval in milliseconds.
-	LambdaLMaxInterval uint64
+	// LambdaLMaxDelay is the maximum time interval in milliseconds.
+	LambdaLMaxDelay uint64
 
 	// LambdaD is the inverse of the mean of the exponential distribution
 	// that clients will sample to determine the time interval between sending
 	// decoy drop messages.
 	LambdaD float64
 
-	// LambdaDMaxInterval is the maximum time interval in milliseconds.
-	LambdaDMaxInterval uint64
+	// LambdaDMaxDelay is the maximum time interval in milliseconds.
+	LambdaDMaxDelay uint64
 
-	// MixLoopLambda is the inverse of the mean of the exponential distribution
+	// LambdaM is the inverse of the mean of the exponential distribution
 	// that mixes will sample to determine send timing of mix loop decoy traffic.
-	MixLoopLambda float64
+	LambdaM float64
 
-	// MixLoopMaxInterval is the maximum send interval in milliseconds.
-	MixLoopMaxInterval uint64
+	// LambdaMMaxDelay is the maximum send interval in milliseconds.
+	LambdaMMaxDelay uint64
 
 	// Topology is the mix network topology, excluding providers.
 	Topology [][]*MixDescriptor
@@ -117,7 +117,7 @@ func (d *Document) String() string {
 	}
 
 	srv := base64.StdEncoding.EncodeToString(d.SharedRandomValue)
-	s := fmt.Sprintf("&{Epoch:%v MixLambda:%v MixMaxDelay:%v SendLambda:%v SendMaxInterval: %v MixLoopLambda: %v MixLoopMaxInterval: %v SharedRandomValue: %v Topology:", d.Epoch, d.MixLambda, d.MixMaxDelay, d.SendLambda, d.SendMaxInterval, d.MixLoopLambda, d.MixLoopMaxInterval, srv)
+	s := fmt.Sprintf("&{Epoch:%v SendRatePerMinute: %v Mu: %v MuMaxDelay: %v LambdaP:%v LambdaPMaxDelay:%v LambdaL:%v LambdaLMaxDelay:%v LambdaD:%v LambdaDMaxDelay:%v LambdaM: %v LambdaMMaxDelay: %v SharedRandomValue: %v Topology:", d.Epoch, d.SendRatePerMinute, d.Mu, d.MuMaxDelay, d.LambdaP, d.LambdaPMaxDelay, d.LambdaL, d.LambdaLMaxDelay, d.LambdaD, d.LambdaDMaxDelay, d.LambdaM, d.LambdaMMaxDelay, srv)
 	for l, nodes := range d.Topology {
 		s += fmt.Sprintf("[%v]{", l)
 		s += stringifyDescSlice(nodes)
