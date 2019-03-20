@@ -71,7 +71,7 @@ type Document struct {
 	// decoy loop messages.
 	LambdaL float64
 
-	// LambdaPMaxInterval is the maximum time interval in milliseconds.
+	// LambdaLMaxInterval is the maximum time interval in milliseconds.
 	LambdaLMaxInterval uint64
 
 	// LambdaD is the inverse of the mean of the exponential distribution
