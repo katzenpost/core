@@ -114,6 +114,7 @@ func (q *PriorityQueue) Enqueue(priority uint64, value interface{}) {
 		Value:    value,
 		Priority: priority,
 	}
+	q.m[ent.Priority] = q.Len()
 	heap.Push(q, ent)
 }
 
