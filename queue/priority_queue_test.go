@@ -17,7 +17,6 @@
 package queue
 
 import (
-	"container/heap"
 	"math/rand"
 	"strings"
 	"testing"
@@ -67,7 +66,7 @@ func TestPriorityQueue(t *testing.T) {
 		require.Equal(expected.Priority, ent.Priority, "Peek(): Priority")
 
 		// Pop
-		ent = heap.Pop(q).(*Entry)
+		ent = q.Pop().(*Entry)
 		require.Equal(expected.Value, ent.Value, "Pop(): Value")
 		require.Equal(expected.Priority, ent.Priority, "Pop(): Priority")
 
@@ -77,7 +76,7 @@ func TestPriorityQueue(t *testing.T) {
 
 	require.Equal(0, q.Len(), "Queue length (empty)")
 	require.Nil(q.Peek(), "Peek() (empty)")
-	require.Nil(heap.Pop(q), "Pop() (empty)")
+	require.Nil(q.Pop(), "Pop() (empty)")
 
 	// Refill the queue.
 	for _, v := range testEntries {
