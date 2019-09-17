@@ -29,6 +29,8 @@ import (
 	"github.com/katzenpost/core/crypto/ecdh"
 	"github.com/katzenpost/core/wire/commands"
 	"github.com/katzenpost/noise"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 )
 
 const (
@@ -138,6 +140,8 @@ type Session struct {
 }
 
 func (s *Session) handshake() error {
+	ts := s.conn.LocalAddr().Network()
+
 	defer func() {
 		s.authenticationKey.Reset() // Don't need this anymore, and s has a copy.
 		atomic.CompareAndSwapUint32(&s.state, stateInit, stateInvalid)
@@ -182,14 +186,28 @@ func (s *Session) handshake() error {
 		if err != nil {
 			return err
 		}
-		if _, err = s.conn.Write(msg1); err != nil {
-			return err
+		switch ts {
+		case "ws":
+			if err = wsutil.WriteServerBinary(s.conn, msg1); err != nil {
+				return err
+			}
+		default:
+			if _, err = s.conn.Write(msg1); err != nil {
+				return err
+			}
 		}
 
 		// <- e, f, ee, ff, s, es, (auth)
 		msg2 := make([]byte, msg2Len)
-		if _, err = io.ReadFull(s.conn, msg2); err != nil {
-			return err
+		switch ts {
+		case "ws":
+			if msg2, err = wsutil.ReadServerBinary(s.conn); err != nil {
+				return err
+			}
+		default:
+			if _, err = io.ReadFull(s.conn, msg2); err != nil {
+				return err
+			}
 		}
 		now := time.Now()
 		rawAuth := make([]byte, 0, authLen)
@@ -225,14 +243,29 @@ func (s *Session) handshake() error {
 		if err != nil {
 			return err
 		}
-		if _, err = s.conn.Write(msg3); err != nil {
-			return err
+		switch ts {
+		case "ws":
+			if err = wsutil.WriteServerBinary(s.conn, msg3); err != nil {
+				return err
+			}
+		default:
+			if _, err = s.conn.Write(msg3); err != nil {
+				return err
+			}
 		}
 	} else {
 		// -> (prologue), e, f
 		msg1 := make([]byte, msg1Len)
-		if _, err = io.ReadFull(s.conn, msg1); err != nil {
-			return err
+		switch ts {
+		case "ws":
+			if msg1, err = wsutil.ReadServerBinary(s.conn); err != nil {
+				return err
+			}
+		default:
+
+			if _, err = io.ReadFull(s.conn, msg1); err != nil {
+				return err
+			}
 		}
 		if subtle.ConstantTimeCompare(prologue, msg1[0:1]) != 1 {
 			return errors.New("wire/session: unsupported protocol version")
@@ -254,15 +287,29 @@ func (s *Session) handshake() error {
 		if err != nil {
 			return err
 		}
-		if _, err = s.conn.Write(msg2); err != nil {
-			return err
+		switch ts {
+		case "ws":
+			if err = wsutil.WriteServerBinary(s.conn, msg2); err != nil {
+				return err
+			}
+		default:
+			if _, err = s.conn.Write(msg2); err != nil {
+				return err
+			}
 		}
 
 		// -> s, se, (auth)
 		msg3 := make([]byte, msg3Len)
 		rawAuth = make([]byte, 0, authLen)
-		if _, err = io.ReadFull(s.conn, msg3); err != nil {
-			return err
+		switch ts {
+		case "ws":
+			if msg3, err = wsutil.ReadServerBinary(s.conn); err != nil {
+				return err
+			}
+		default:
+			if _, err = io.ReadFull(s.conn, msg3); err != nil {
+				return err
+			}
 		}
 		rawAuth, s.rx, s.tx, err = hs.ReadMessage(rawAuth, msg3)
 		if err != nil {
@@ -354,7 +401,13 @@ func (s *Session) SendCommand(cmd commands.Command) error {
 	toSend = s.tx.Encrypt(toSend, nil, pt)
 	s.tx.Rekey()
 
-	_, err := s.conn.Write(toSend)
+	var err error
+	switch s.conn.LocalAddr().Network() {
+	case "ws":
+		err = wsutil.WriteServerBinary(s.conn, toSend)
+	default:
+		_, err = s.conn.Write(toSend)
+	}
 	if err != nil {
 		// All write errors are fatal.
 		atomic.StoreUint32(&s.state, stateInvalid)
@@ -376,9 +429,18 @@ func (s *Session) recvCommandImpl() (commands.Command, error) {
 	if atomic.LoadUint32(&s.state) != stateEstablished {
 		return nil, errInvalidState
 	}
+	// Find out what type of connection this is
+	ts := s.conn.LocalAddr().Network()
 
 	// Read, decrypt and parse the CiphertextHeader.
 	var ctHdrCt [macLen + 4]byte
+
+	// If the protocol is websocket, skip the header
+	if ts == "ws" {
+		if _, err := ws.ReadHeader(s.conn); err != nil {
+			return nil, err
+		}
+	}
 	if _, err := io.ReadFull(s.conn, ctHdrCt[:]); err != nil {
 		return nil, err
 	}
@@ -393,6 +455,7 @@ func (s *Session) recvCommandImpl() (commands.Command, error) {
 
 	// Read and decrypt the Ciphertext.
 	ct := make([]byte, ctLen)
+
 	if _, err := io.ReadFull(s.conn, ct); err != nil {
 		return nil, err
 	}
