@@ -233,13 +233,23 @@ var (
 	// TransportTCPv6 is TCP over IPv6.
 	TransportTCPv6 Transport = "tcp6"
 
+	// TransportWS is WebSocket with the IP version determined by the results
+	// of a name server lookup.
+	TransportWS Transport = "ws"
+
+	// TransportWSv4 is WebSocket over IPv4.
+	TransportWSv4 Transport = "ws4"
+
+	// TransportWSv6 is WebSocket over IPv6.
+	TransportWSv6 Transport = "ws6"
+
 	// InternalTransports is the list of transports used for non-client related
 	// communications.
 	InternalTransports = []Transport{TransportTCPv4, TransportTCPv6}
 
 	// ClientTransports is the list of transports used by default for client
 	// to provider communication.
-	ClientTransports = []Transport{TransportTCP, TransportTCPv4, TransportTCPv6}
+	ClientTransports = []Transport{TransportTCP, TransportTCPv4, TransportTCPv6, TransportWS, TransportWSv4, TransportWSv6}
 )
 
 // MixDescriptor is a description of a given Mix or Provider (node).
