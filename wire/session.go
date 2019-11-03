@@ -37,8 +37,8 @@ const (
 	// sent to the peer as part of the handshake authentication.
 	MaxAdditionalDataLength = 255
 
-	maxMsgLen = 1048576
 	macLen    = 16
+	MaxMsgLen = noise.DefaultMaxMsgLen - macLen
 	authLen   = 1 + MaxAdditionalDataLength + 4
 )
 
@@ -163,7 +163,7 @@ func (s *Session) handshake() error {
 		Initiator:     s.isInitiator,
 		StaticKeypair: dhKey,
 		Prologue:      prologue,
-		MaxMsgLen:     maxMsgLen,
+		MaxMsgLen:     MaxMsgLen,
 	})
 	if err != nil {
 		return err
@@ -344,7 +344,7 @@ func (s *Session) SendCommand(cmd commands.Command) error {
 	// Derive the Ciphertext length.
 	pt := cmd.ToBytes()
 	ctLen := macLen + len(pt)
-	if ctLen > maxMsgLen {
+	if ctLen > MaxMsgLen {
 		return errMsgSize
 	}
 
@@ -399,7 +399,7 @@ func (s *Session) recvCommandImpl() (commands.Command, error) {
 		return nil, err
 	}
 	ctLen := binary.BigEndian.Uint32(ctHdr[:])
-	if ctLen < macLen || ctLen > maxMsgLen {
+	if ctLen < macLen || ctLen > MaxMsgLen {
 		return nil, errMsgSize
 	}
 
