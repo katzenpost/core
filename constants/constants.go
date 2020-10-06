@@ -33,7 +33,7 @@ const (
 	// SURB's space available for payload.  The Sphinx spec calls this
 	// `PAYLOAD_LENGTH`, since the Sphinx spec is agnostic to how SURBs are
 	// transported.
-	ForwardPayloadLength = 50 * 1024
+	ForwardPayloadLength = 1024
 
 	// UserForwardPayloadLength is the length of user portion of the forward
 	// payload.  The End to End spec calls this `PAYLOAD_LENGTH` but this is
