@@ -302,6 +302,7 @@ func (s *Session) finalizeHandshake() error {
 		}
 		if _, ok := cmd.(*commands.NoOp); !ok {
 			// Protocol violation, the peer sent something other than a NoOp.
+			panic("wtf")
 			return errInvalidState
 		}
 		return nil
@@ -317,6 +318,7 @@ func (s *Session) finalizeHandshake() error {
 // conducts the wire protocol handshake.
 func (s *Session) Initialize(conn net.Conn) error {
 	if atomic.LoadUint32(&s.state) != stateInit {
+		panic("wtf")
 		return errInvalidState
 	}
 	s.conn = conn
@@ -334,6 +336,7 @@ func (s *Session) Initialize(conn net.Conn) error {
 // SendCommand sends the wire protocol command cmd.
 func (s *Session) SendCommand(cmd commands.Command) error {
 	if atomic.LoadUint32(&s.state) != stateEstablished {
+		panic("wtf")
 		return errInvalidState
 	}
 
@@ -384,6 +387,7 @@ func (s *Session) RecvCommand() (commands.Command, error) {
 
 func (s *Session) recvCommandImpl() (commands.Command, error) {
 	if atomic.LoadUint32(&s.state) != stateEstablished {
+		panic("wtf")
 		return nil, errInvalidState
 	}
 
