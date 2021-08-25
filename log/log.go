@@ -34,6 +34,10 @@ type discardCloser struct {
 	discard io.Writer
 }
 
+func (d *discardCloser) Write(msg []byte) (int, error) {
+	return d.discard.Write(msg)
+}
+
 func (d *discardCloser) Close() error {
 	return nil
 }
